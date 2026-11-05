@@ -1,0 +1,824 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ajo: rotating savings circles</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e14;
+    --surface: #121820;
+    --border: #232b36;
+    --text: #e8eef5;
+    --muted: #8892a0;
+    --accent: #14f195;
+    --accent-dim: rgba(20, 241, 149, 0.1);
+    --accent-border: rgba(20, 241, 149, 0.35);
+    --gold: #f5b914;
+    --gold-dim: rgba(245, 185, 20, 0.1);
+    --gold-border: rgba(245, 185, 20, 0.4);
+    --blue: #4d9fff;
+    --blue-dim: rgba(77, 159, 255, 0.1);
+    --blue-border: rgba(77, 159, 255, 0.4);
+    --red: #ff5e5e;
+    --red-dim: rgba(255, 94, 94, 0.1);
+    --red-border: rgba(255, 94, 94, 0.35);
+    --radius: 12px;
+    --radius-lg: 16px;
+    --track: #1e2634;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 20px;
+  }
+
+  body {
+    font-family: "Instrument Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.55;
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* ── Background decorations ── */
+  .bg-decor {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 0;
+  }
+
+  .blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(100px);
+    pointer-events: none;
+    opacity: 0.28;
+  }
+
+  .blob-green { background: radial-gradient(circle, var(--accent), transparent 70%); }
+  .blob-blue  { background: radial-gradient(circle, var(--blue), transparent 70%); }
+  .blob-gold  { background: radial-gradient(circle, var(--gold), transparent 70%); }
+
+  .dot-grid {
+    position: absolute;
+    pointer-events: none;
+    background-image: radial-gradient(circle, rgba(255,255,255,0.08) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  .ring-decor {
+    position: absolute;
+    border-radius: 50%;
+    border: 1px solid rgba(20, 241, 149, 0.1);
+    pointer-events: none;
+  }
+
+  .ring-decor::before,
+  .ring-decor::after {
+    content: "";
+    position: absolute;
+    border-radius: 50%;
+    border: 1px solid rgba(20, 241, 149, 0.07);
+  }
+
+  .ring-decor::before { inset: 14%; }
+  .ring-decor::after  { inset: 30%; }
+
+  .line-grid {
+    position: absolute;
+    pointer-events: none;
+    background-image: repeating-linear-gradient(
+      45deg,
+      rgba(255,255,255,0.02) 0px,
+      rgba(255,255,255,0.02) 1px,
+      transparent 1px,
+      transparent 16px
+    );
+  }
+
+  /* ── Layout ── */
+  .wrap {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 28px 16px 48px;
+    position: relative;
+    z-index: 2;
+  }
+
+  header { margin-bottom: 24px; }
+
+  h1 {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-size: clamp(2rem, 5vw, 2.8rem);
+    font-weight: 800;
+    letter-spacing: -0.035em;
+    line-height: 1.05;
+    margin-bottom: 8px;
+  }
+
+  h2 {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-size: clamp(1.3rem, 3vw, 1.6rem);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    margin-bottom: 4px;
+  }
+
+  h3 {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 24px 0 10px;
+    letter-spacing: -0.01em;
+  }
+
+  header p {
+    color: var(--muted);
+    max-width: 56ch;
+    line-height: 1.55;
+  }
+
+  .app {
+    display: grid;
+    gap: 16px;
+  }
+
+  @media (min-width: 820px) {
+    .app { grid-template-columns: 280px 1fr; align-items: start; }
+  }
+
+  /* ── Sidebar ── */
+  #side {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    position: relative;
+    z-index: 2;
+  }
+
+  .item {
+    all: unset;
+    box-sizing: border-box;
+    cursor: pointer;
+    display: block;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s;
+  }
+
+  .item:hover {
+    border-color: #2f3a48;
+    transform: translateY(-1px);
+  }
+
+  .item b {
+    display: block;
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--text);
+    margin-bottom: 2px;
+  }
+
+  .item span {
+    color: var(--muted);
+    font-size: 0.82rem;
+  }
+
+  .item.on {
+    border-color: var(--accent-border);
+    box-shadow: inset 3px 0 0 var(--accent), 0 0 0 1px rgba(20,241,149,0.08);
+    background: linear-gradient(90deg, var(--accent-dim), var(--surface) 40%);
+  }
+
+  .item.on b { color: var(--accent); }
+
+  /* ── Panel ── */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    position: relative;
+    z-index: 2;
+  }
+
+  /* ── Buttons ── */
+  .btn {
+    font-family: "Instrument Sans", sans-serif;
+    font-weight: 700;
+    font-size: 0.88rem;
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: var(--bg);
+    border-radius: 8px;
+    padding: 9px 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.01em;
+  }
+
+  .btn:hover:not([disabled]) {
+    background: #3fffa8;
+    border-color: #3fffa8;
+    transform: translateY(-1px);
+  }
+
+  .btn.ghost {
+    background: transparent;
+    color: var(--text);
+    border-color: var(--border);
+  }
+
+  .btn.ghost:hover:not([disabled]) {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-dim);
+    transform: none;
+  }
+
+  .btn.gold {
+    background: var(--gold);
+    border-color: var(--gold);
+    color: #1a1000;
+  }
+
+  .btn.gold:hover:not([disabled]) {
+    background: #ffcd3d;
+    border-color: #ffcd3d;
+  }
+
+  .btn.danger {
+    color: var(--red);
+    border-color: var(--red-border);
+    background: var(--red-dim);
+  }
+
+  .btn.danger:hover:not([disabled]) {
+    background: rgba(255,94,94,0.18);
+    border-color: var(--red);
+    transform: none;
+  }
+
+  .btn[disabled] {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none !important;
+  }
+
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 3px solid var(--gold);
+    outline-offset: 2px;
+  }
+
+  /* ── Top (ring + facts) ── */
+  .top {
+    display: grid;
+    gap: 24px;
+    align-items: center;
+  }
+
+  @media (min-width: 620px) {
+    .top { grid-template-columns: 280px 1fr; }
+  }
+
+  svg { width: 100%; max-width: 280px; margin: 0 auto; display: block; }
+
+  .track {
+    fill: none;
+    stroke: var(--track);
+    stroke-width: 10;
+  }
+
+  .prog {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 10;
+    stroke-linecap: round;
+    transition: stroke-dasharray 0.5s;
+    filter: drop-shadow(0 0 6px rgba(20,241,149,0.4));
+  }
+
+  .node text {
+    font: 700 13px "Bricolage Grotesque", sans-serif;
+    text-anchor: middle;
+  }
+
+  .node.wait circle {
+    fill: var(--surface);
+    stroke: var(--border);
+    stroke-width: 1.5;
+  }
+
+  .node.wait text { fill: var(--muted); }
+
+  .node.done circle {
+    fill: var(--accent-dim);
+    stroke: var(--accent-border);
+    stroke-width: 1.5;
+  }
+
+  .node.done text { fill: var(--accent); }
+
+  .node.cur circle {
+    fill: var(--gold);
+    stroke: var(--gold);
+    stroke-width: 2;
+    filter: drop-shadow(0 0 8px rgba(245,185,20,0.5));
+  }
+
+  .node.cur text { fill: #1a1000; }
+
+  .pot {
+    font: 800 22px "Bricolage Grotesque", sans-serif;
+    text-anchor: middle;
+    fill: var(--text);
+    letter-spacing: -0.02em;
+  }
+
+  .potl {
+    font: 600 11px "Instrument Sans", sans-serif;
+    text-anchor: middle;
+    fill: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+
+  /* ── Facts ── */
+  .facts h2 {
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+
+  .facts p {
+    margin: 6px 0;
+    color: var(--muted);
+    line-height: 1.55;
+  }
+
+  .facts strong { color: var(--text); font-weight: 700; }
+
+  .chip {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    border-radius: 99px;
+    padding: 3px 10px;
+    border: 1px solid var(--border);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-left: 4px;
+  }
+
+  .chip.late {
+    color: var(--red);
+    border-color: var(--red-border);
+    background: var(--red-dim);
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 16px;
+  }
+
+  /* ── Rows (member list) ── */
+  .rows {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .rows li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.2s;
+  }
+
+  .rows li.cur {
+    background: linear-gradient(90deg, var(--gold-dim), transparent);
+    padding-left: 10px;
+    margin-left: -10px;
+    padding-right: 10px;
+    margin-right: -10px;
+    border-radius: 8px;
+  }
+
+  .rows .who {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .rows .who b {
+    display: block;
+    font-weight: 700;
+    color: var(--text);
+    overflow-wrap: anywhere;
+    font-size: 0.95rem;
+  }
+
+  .rows .who span {
+    font-size: 0.82rem;
+    color: var(--muted);
+  }
+
+  .rows li.cur .who b::after {
+    content: " · collecting";
+    color: var(--gold);
+    font-weight: 600;
+    font-size: 0.8rem;
+  }
+
+  .paid { min-width: 100px; }
+
+  .acts {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .paid[aria-pressed="true"] {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--bg);
+  }
+
+  .paid[aria-pressed="true"]:hover {
+    background: #3fffa8 !important;
+    border-color: #3fffa8 !important;
+    color: var(--bg) !important;
+  }
+
+  /* ── History ── */
+  .hist {
+    margin: 0;
+    padding-left: 0;
+    list-style: none;
+    color: var(--muted);
+  }
+
+  .hist li {
+    margin: 8px 0;
+    padding: 10px 14px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 0.88rem;
+    line-height: 1.5;
+  }
+
+  .hist li::before {
+    content: "✓ ";
+    color: var(--accent);
+    font-weight: 700;
+    margin-right: 4px;
+  }
+
+  .hist b { color: var(--text); font-weight: 700; }
+
+  /* ── Note / messages ── */
+  .note {
+    background: var(--blue-dim);
+    border: 1px solid var(--blue-border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin: 16px 0 0;
+    font-size: 0.88rem;
+    color: var(--text);
+    line-height: 1.55;
+  }
+
+  #msg {
+    min-height: 22px;
+    color: var(--accent);
+    font-weight: 600;
+    margin: 0 0 12px;
+    font-size: 0.9rem;
+  }
+
+  /* ── Forms ── */
+  label {
+    display: block;
+    font-weight: 700;
+    margin: 16px 0 6px;
+    font-size: 0.88rem;
+    color: var(--text);
+    letter-spacing: 0.01em;
+  }
+
+  input[type=text],
+  input[type=number],
+  select,
+  textarea {
+    width: 100%;
+    font-family: inherit;
+    font-size: 0.95rem;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  input[type=text]:hover,
+  input[type=number]:hover,
+  select:hover,
+  textarea:hover {
+    border-color: #2f3a48;
+  }
+
+  input[type=text]:focus,
+  input[type=number]:focus,
+  select:focus,
+  textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-dim);
+    outline: none;
+  }
+
+  textarea {
+    min-height: 140px;
+    resize: vertical;
+    font-family: "Instrument Sans", monospace;
+    line-height: 1.6;
+  }
+
+  .hint {
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin: 8px 0 0;
+    line-height: 1.55;
+  }
+
+  .check {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    font-weight: 600;
+    margin-top: 16px;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+
+  .check input {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
+  .err {
+    color: var(--red);
+    font-weight: 600;
+    margin: 12px 0 0;
+    font-size: 0.88rem;
+    min-height: 0;
+  }
+
+  .err:empty { display: none; }
+
+  /* ── Footer ── */
+  footer {
+    margin-top: 28px;
+    color: var(--muted);
+    font-size: 0.82rem;
+    max-width: 70ch;
+    line-height: 1.6;
+    position: relative;
+    z-index: 2;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 640px) {
+    .wrap { padding: 20px 12px 36px; }
+    .panel { padding: 18px; }
+    .rows .who b { font-size: 0.9rem; }
+    .acts { justify-content: flex-start; }
+    .rows li { flex-wrap: wrap; }
+    .paid { min-width: 0; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .prog { transition: none; }
+    .item, .btn { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Background decorations -->
+<div class="bg-decor" aria-hidden="true">
+  <div class="blob blob-green" style="width: 480px; height: 480px; top: -180px; right: -160px;"></div>
+  <div class="blob blob-blue" style="width: 400px; height: 400px; bottom: -160px; left: -140px;"></div>
+  <div class="blob blob-gold" style="width: 300px; height: 300px; top: 40%; left: 40%; opacity: 0.15;"></div>
+  <div class="dot-grid" style="top: 8%; left: 4%; width: 160px; height: 160px;"></div>
+  <div class="dot-grid" style="bottom: 8%; right: 4%; width: 200px; height: 200px;"></div>
+  <div class="ring-decor" style="width: 340px; height: 340px; top: 30%; right: -100px;"></div>
+  <div class="ring-decor" style="width: 260px; height: 260px; bottom: 10%; left: -80px;"></div>
+  <div class="line-grid" style="top: 0; left: 0; width: 30%; height: 100%;"></div>
+</div>
+
+<div class="wrap">
+  <header>
+    <h1>CirclePay</h1>
+    <p>Rotating savings circles. Everyone pays in each round, and one member collects the whole pot. Keep going until everyone has had a turn.</p>
+  </header>
+
+  <p class="note" id="mode" hidden>Practice mode: no Roqqu key is set, so payment links open a simulated page and no real money moves.</p>
+
+  <div class="app">
+    <nav id="side" aria-label="Your circles"></nav>
+    <main id="main" class="panel"></main>
+  </div>
+
+  <footer>Contributions are collected with Roqqu payment links and only count once Roqqu confirms them. "Mark paid" is for cash or bank transfers received outside Roqqu.</footer>
+</div>
+
+<script>
+const api = async (path, opt = {}) => {
+  const r = await fetch(path, { headers: { "Content-Type": "application/json" }, ...opt });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || r.statusText);
+  return d;
+};
+const Wallet = {
+  link: (g, i) => api("/api/link", { method: "POST", body: JSON.stringify({ groupId: g.id, index: i }) }),
+  payout: g => api("/api/payout", { method: "POST", body: JSON.stringify({ groupId: g.id }) })
+};
+
+const S = { live: false, groups: [], active: null, creating: false, confirmDel: null, msg: "", err: "" };
+const $ = s => document.querySelector(s);
+const uid = () => Math.random().toString(36).slice(2, 9);
+const iso = d => d.toISOString().slice(0, 10);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const naira = n => "₦" + Number(n).toLocaleString("en-NG");
+const fmt = d => d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+
+let saving = Promise.resolve();
+function save() {
+  saving = saving.then(() => api("/api/state", { method: "PUT", body: JSON.stringify({ groups: S.groups }) })).catch(() => { S.msg = "Could not save. Check your connection."; });
+  return saving;
+}
+
+function dueDate(g) {
+  const d = new Date(g.start + "T12:00:00"), k = g.round + 1;
+  if (g.freq === "weekly") d.setDate(d.getDate() + 7 * k); else d.setMonth(d.getMonth() + k);
+  return d;
+}
+
+function ring(g) {
+  const n = g.members.length, R = 92, C = 2 * Math.PI * R, paid = g.members.filter(m => m.paid).length;
+  const nodes = g.members.map((m, i) => {
+    const a = i / n * 2 * Math.PI - Math.PI / 2, x = 120 + R * Math.cos(a), y = 120 + R * Math.sin(a);
+    const cur = g.round < n && i === g.round, done = i < g.round || g.round >= n;
+    return `<g class="node ${cur ? "cur" : done ? "done" : "wait"}"><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${cur ? 19 : 15}"/><text x="${x.toFixed(1)}" y="${(y + 4.5).toFixed(1)}">${esc(m.name.charAt(0).toUpperCase())}</text></g>`;
+  }).join("");
+  const frac = g.round >= n ? 1 : paid / n;
+  return `<svg viewBox="0 0 240 240" role="img" aria-label="${paid} of ${n} members have paid this round">
+    <circle class="track" cx="120" cy="120" r="${R}"/>
+    <circle class="prog" cx="120" cy="120" r="${R}" stroke-dasharray="${(C * frac).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 120 120)"/>
+    ${nodes}
+    <text class="pot" x="120" y="118">${naira(g.amount * n)}</text><text class="potl" x="120" y="138">in the pot</text></svg>`;
+}
+
+function detail(g) {
+  const n = g.members.length, pot = g.amount * n, done = g.round >= n;
+  const paid = g.members.filter(m => m.paid).length, cur = g.members[g.round];
+  const due = done ? null : dueDate(g), late = !done && new Date() > due && paid < n;
+  const rows = g.members.map((m, i) => {
+    const sub = i < g.round ? `Collected ${naira(pot)}` : (i === g.round && !done ? "Collecting this round" : `Collects in round ${i + 1}`);
+    const lnk = m.paid ? "" : `<button class="btn ghost" data-act="link" data-i="${i}">${m.link ? "Copy link" : "Get link"}</button>`;
+    const btn = done ? "" : `<div class="acts">${lnk}<button class="btn ghost paid" data-act="pay" data-i="${i}" aria-pressed="${m.paid}">${m.paid ? "Paid ✓" : "Mark paid"}</button></div>`;
+    return `<li class="${i === g.round && !done ? "cur" : ""}"><div class="who"><b>${esc(m.name)}</b><span>${sub}</span></div>${btn}</li>`;
+  }).join("");
+  const hist = g.history.length
+    ? `<ol class="hist" reversed>${g.history.slice().reverse().map(h => `<li><b>${esc(h.name)}</b> collected ${naira(h.amount)} in round ${h.round + 1} on ${fmt(new Date(h.date + "T12:00:00"))}</li>`).join("")}</ol>`
+    : `<p class="hint">No payouts yet. The first one appears here once everyone has paid.</p>`;
+  const facts = done
+    ? `<h2>${esc(g.name)}</h2><p><strong>Cycle complete.</strong> All ${n} members have collected the pot once.</p><div class="actions"><button class="btn" data-act="cycle">Start a new cycle</button></div>`
+    : `<h2>${esc(g.name)}</h2>
+       <p>Round <strong>${g.round + 1} of ${n}</strong>. <strong>${esc(cur.name)}</strong> collects ${naira(pot)}.</p>
+       <p>${naira(g.amount)} from each member, ${g.freq}. Due <strong>${fmt(due)}</strong> ${late ? '<span class="chip late">Overdue</span>' : ""}</p>
+       <p>${paid} of ${n} paid (${naira(paid * g.amount)} collected so far)</p>
+       <div class="actions"><button class="btn gold" data-act="payout" ${paid < n ? "disabled" : ""}>Pay out ${naira(pot)} to ${esc(cur.name)}</button></div>`;
+  const del = S.confirmDel === g.id ? "Tap again to delete" : "Delete circle";
+  return `<p id="msg" role="status" aria-live="polite">${esc(S.msg)}</p>
+    <div class="top"><div>${ring(g)}</div><div class="facts">${facts}</div></div>
+    ${done ? "" : `<h3>This round's contributions</h3><ul class="rows">${rows}</ul>`}
+    ${done ? `<h3>Payout order</h3><ul class="rows">${rows}</ul>` : ""}
+    <h3>Payout history</h3>${hist}
+    <div class="actions" style="margin-top:24px"><button class="btn danger" data-act="del">${del}</button></div>`;
+}
+
+function form() {
+  return `<h2>Start a new circle</h2>
+    <label for="f-name">Circle name</label><input id="f-name" type="text" maxlength="40" placeholder="e.g. Office Esusu">
+    <label for="f-amt">Contribution per member (₦)</label><input id="f-amt" type="number" min="100" step="100" value="10000">
+    <label for="f-freq">How often</label><select id="f-freq"><option value="monthly">Monthly</option><option value="weekly">Weekly</option></select>
+    <label for="f-mem">Members, one name per line</label><textarea id="f-mem" placeholder="Amaka | her payout wallet address&#10;Tunde | his payout wallet address&#10;Ngozi | her payout wallet address"></textarea>
+    <p class="hint">Add at least 3 members. After each name, type | and the address the pot should be sent to when it is their turn. The circle has one round per member, so a circle of 6 runs 6 rounds. Order below is the payout order.</p>
+    <label class="check"><input id="f-rnd" type="checkbox"> Draw the payout order randomly</label>
+    <p class="err" id="f-err" role="alert">${esc(S.err)}</p>
+    <div class="actions"><button class="btn" data-act="create">Create circle</button>${S.groups.length ? '<button class="btn ghost" data-act="cancel">Cancel</button>' : ""}</div>`;
+}
+
+function render() {
+  $("#mode").hidden = S.live;
+  const g = S.groups.find(x => x.id === S.active);
+  $("#side").innerHTML = S.groups.map(x => `<button class="item${x.id === S.active && !S.creating ? " on" : ""}" data-act="sel" data-id="${x.id}"><b>${esc(x.name)}</b><span>${naira(x.amount)} ${x.freq}, ${x.members.length} members</span></button>`).join("")
+    + `<button class="btn ghost" data-act="new" style="margin-top:4px">+ Start a new circle</button>`;
+  $("#main").innerHTML = S.creating || !g ? form() : detail(g);
+}
+
+function create() {
+  const name = $("#f-name").value.trim(), amt = Number($("#f-amt").value), freq = $("#f-freq").value;
+  const seen = new Set();
+  let names = $("#f-mem").value.split("\n").map(s => s.trim()).filter(Boolean).map(s => { const [n, ...r] = s.split("|"); return { name: n.trim(), payoutTo: r.join("|").trim() }; }).filter(p => p.name && !seen.has(p.name) && seen.add(p.name));
+  const fail = m => { S.err = m; $("#f-err").textContent = m; };
+  if (!name) return fail("Give the circle a name.");
+  if (!(amt >= 100)) return fail("Contribution must be at least ₦100.");
+  if (names.length < 3) return fail("Add at least 3 different member names.");
+  if (names.length > 30) return fail("A circle can have up to 30 members.");
+  if ($("#f-rnd").checked) for (let i = names.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [names[i], names[j]] = [names[j], names[i]]; }
+  const g = { id: uid(), name, amount: amt, freq, start: iso(new Date()), round: 0, cycles: 0, members: names.map(p => ({ name: p.name, payoutTo: p.payoutTo, paid: false })), history: [] };
+  S.groups.push(g); S.active = g.id; S.creating = false; S.err = ""; S.msg = "Circle created. Mark each member's contribution as it arrives."; save(); render();
+}
+
+document.body.addEventListener("click", async e => {
+  const b = e.target.closest("[data-act]"); if (!b) return;
+  const act = b.dataset.act, g = S.groups.find(x => x.id === S.active);
+  if (act !== "del") S.confirmDel = null;
+  if (act === "sel") { S.active = b.dataset.id; S.creating = false; S.msg = ""; }
+  else if (act === "new") { S.creating = true; S.err = ""; }
+  else if (act === "cancel") { S.creating = false; }
+  else if (act === "create") { return create(); }
+  else if (act === "pay" && g) {
+    const m = g.members[+b.dataset.i];
+    m.paid = !m.paid; S.msg = m.paid ? `${m.name}'s contribution recorded.` : `${m.name}'s payment marked as not received.`;
+  }
+  else if (act === "payout" && g) {
+    const cur = g.members[g.round], pot = g.amount * g.members.length;
+    try { await save(); await Wallet.payout(g); } catch (er) { S.msg = "Payout failed: " + er.message; render(); return; }
+    g.history.push({ round: g.round, name: cur.name, amount: pot, date: iso(new Date()) });
+    g.members.forEach(m => { m.paid = false; m.link = null; m.ref = null; }); g.round++;
+    S.msg = `${cur.name} collected ${naira(pot)}.`;
+  }
+  else if (act === "link" && g) {
+    const i = +b.dataset.i, m = g.members[i];
+    try {
+      if (!m.link) { await save(); const r = await Wallet.link(g, i); m.link = r.url; m.ref = r.ref; await save(); }
+      let copied = false; try { await navigator.clipboard.writeText(m.link); copied = true; } catch (e) {}
+      S.msg = copied ? `Payment link for ${m.name} copied. Send it to them.` : `Payment link for ${m.name}: ${m.link}`;
+    } catch (er) { S.msg = er.message; }
+  }
+  else if (act === "cycle" && g) { g.round = 0; g.cycles++; g.start = iso(new Date()); g.members.forEach(m => { m.paid = false; m.link = null; m.ref = null; }); S.msg = "New cycle started."; }
+  else if (act === "del" && g) {
+    if (S.confirmDel === g.id) { S.groups = S.groups.filter(x => x.id !== g.id); S.active = S.groups[0] ? S.groups[0].id : null; S.confirmDel = null; S.msg = ""; }
+    else S.confirmDel = g.id;
+  }
+  save(); render();
+});
+
+async function poll() {
+  if (S.creating || document.hidden) return;
+  try {
+    await saving; const d = await api("/api/state");
+    if (JSON.stringify(d.groups) !== JSON.stringify(S.groups)) { S.groups = d.groups; render(); }
+  } catch (e) {}
+}
+(async () => {
+  try { const d = await api("/api/state"); S.groups = d.groups; S.live = d.live; } catch (e) { S.msg = "Could not load your circles."; }
+  S.active = S.groups[0] ? S.groups[0].id : null;
+  S.creating = !S.groups.length;
+  render();
+  setInterval(poll, 10000);
+})();
+</script>
+</body>
+</html>

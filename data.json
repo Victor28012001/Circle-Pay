@@ -1,0 +1,72 @@
+{
+ "groups": [
+  {
+   "id": "tdov5zt",
+   "name": "Office Esusu",
+   "amount": 10000,
+   "freq": "monthly",
+   "start": "2026-11-05",
+   "round": 1,
+   "cycles": 0,
+   "members": [
+    {
+     "name": "Amaka Obi",
+     "payoutTo": "0x7a3f9c2e1b8d4a6f5e9c7b3a1d8f2e4c6b9a7f1d",
+     "paid": false,
+     "link": null,
+     "ref": null
+    },
+    {
+     "name": "Tunde Bakare",
+     "payoutTo": "0x2b8e4d6f1a9c3e5b7d2f4a8c6e1b9d3f5a7c2e4b",
+     "paid": false,
+     "link": null,
+     "ref": null
+    },
+    {
+     "name": "Ngozi Eze",
+     "payoutTo": "0x9c1d5a7f3b2e8c4d6a9f1b5e7c3a2d8f4b6e9c1a",
+     "paid": false,
+     "link": null,
+     "ref": null
+    },
+    {
+     "name": "Emeka Nwosu",
+     "payoutTo": "0x4f7b2d9e6c1a8f3b5d7e2c9a4f6b1d8e3c5a7f2b",
+     "paid": false,
+     "link": null,
+     "ref": null
+    },
+    {
+     "name": "Fatima Yusuf",
+     "payoutTo": "0x6a2c9e4b7d1f5a8c3e6b9d2f4a7c1e5b8d3f6a9c",
+     "paid": false,
+     "link": null,
+     "ref": null
+    },
+    {
+     "name": "Chidi Okonkwo",
+     "payoutTo": "0x8d3f1b6a9c2e5d7f4a1c8e3b6d9f2a5c7e4b1d8f",
+     "paid": false,
+     "link": null,
+     "ref": null
+    }
+   ],
+   "history": [
+    {
+     "round": 0,
+     "name": "Amaka Obi",
+     "amount": 60000,
+     "date": "2026-11-05"
+    }
+   ]
+  }
+ ],
+ "paidRefs": {},
+ "payouts": {
+  "tdov5zt-0": {
+   "id": "mock-tdov5zt-0",
+   "mock": true
+  }
+ }
+}
