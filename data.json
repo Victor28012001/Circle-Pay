@@ -1,5 +1,73 @@
 {
- "groups": [],
+ "groups": [
+  {
+   "id": "wjox08w",
+   "ownerId": "admin:admin",
+   "name": "Office Esusu",
+   "amount": 10000,
+   "freq": "monthly",
+   "start": "2026-11-06",
+   "round": 0,
+   "cycles": 0,
+   "members": [
+    {
+     "name": "Amaka Obi",
+     "email": "amakaobi@gmail.com",
+     "paid": false,
+     "evidence": [],
+     "paymentReference": null,
+     "link": null,
+     "ref": null
+    },
+    {
+     "name": "Tunde Bakare",
+     "email": "tundebakare@gmail.com",
+     "paid": false,
+     "evidence": [],
+     "paymentReference": null,
+     "link": null,
+     "ref": null
+    },
+    {
+     "name": "Ngozi Eze",
+     "email": "ngozieze@gmail.com",
+     "paid": false,
+     "evidence": [],
+     "paymentReference": null,
+     "link": null,
+     "ref": null
+    },
+    {
+     "name": "Emeka Nwosu",
+     "email": "emekanwosu@gmail.com",
+     "paid": false,
+     "evidence": [],
+     "paymentReference": null,
+     "link": null,
+     "ref": null
+    },
+    {
+     "name": "Fatima Yusuf",
+     "email": "fatimayusuf@gmail.com",
+     "paid": false,
+     "evidence": [],
+     "paymentReference": null,
+     "link": null,
+     "ref": null
+    },
+    {
+     "name": "Chidi Okonkwo",
+     "email": "chidiokonkwo@gmail.com",
+     "paid": false,
+     "evidence": [],
+     "paymentReference": null,
+     "link": null,
+     "ref": null
+    }
+   ],
+   "history": []
+  }
+ ],
  "paidRefs": {},
  "payouts": {
   "tdov5zt-0": {
@@ -13,11 +81,42 @@
  },
  "users": [],
  "sessions": {
-  "b664096d4fb4461c4995f33c19846e8a00161dfe3d84d4e05798f75013c56f9b": {
+  "02f6b2efc67ead6cad9d0a915a664359ffb82f110e29fa21d45670a05a913ba8": {
    "userId": "admin:admin",
-   "expiresAt": 1794548620673
+   "expiresAt": 1794569296176
   }
  },
- "invites": {},
+ "invites": {
+  "5993a45c6fdf20b3e56cf2d6ca4829b7373f15fcd99a4e334c372d7045500b8d": {
+   "groupId": "wjox08w",
+   "memberIndex": 0,
+   "email": "amakaobi@gmail.com",
+   "expiresAt": 1794569465870
+  },
+  "e1728ef9def7369f9161b40165b9d481b77eceeb3ba95d4a2a0b97ceeaad42d8": {
+   "groupId": "wjox08w",
+   "memberIndex": 2,
+   "email": "ngozieze@gmail.com",
+   "expiresAt": 1794569470220
+  },
+  "a9b40332b41111d3532fe2b135de0b2f5802eadce557006177f7031e9ad8fa35": {
+   "groupId": "wjox08w",
+   "memberIndex": 3,
+   "email": "emekanwosu@gmail.com",
+   "expiresAt": 1794569471509
+  },
+  "11dafa58840536f4b47a88daf8fd23bb83fd9e4a58ce2722cb859e33ef03f67f": {
+   "groupId": "wjox08w",
+   "memberIndex": 4,
+   "email": "fatimayusuf@gmail.com",
+   "expiresAt": 1794569472828
+  },
+  "7ff48640e97c08a67b11f30c906e38fe2c01620c76873e36f9dae6cea5a554c3": {
+   "groupId": "wjox08w",
+   "memberIndex": 5,
+   "email": "chidiokonkwo@gmail.com",
+   "expiresAt": 1794569474164
+  }
+ },
  "paymentRefs": {}
 }
