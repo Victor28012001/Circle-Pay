@@ -1,58 +1,91 @@
-// All Roqqu calls live in this file. Without ROQQU_API_KEY the app runs in practice mode.
-// Fill the three spots marked ">>> FROM DOCS" using the Roqqu API Services docs
-// (roqqu-api-services.gitbook.io/ras). Use a TEST key first.
-const KEY = process.env.ROQQU_API_KEY;
-const BASE = process.env.ROQQU_BASE_URL;
-const PUBLIC = process.env.PUBLIC_URL || `http://localhost:${process.env.PORT || 3000}`;
+import crypto from "node:crypto";
+
+const KEY = process.env.ROQQU_STAGING_API_KEY || process.env.ROQQU_API_KEY;
+const configuredMode = (process.env.ROQQU_MODE || "staging").toLowerCase();
+const staging = Boolean(process.env.ROQQU_STAGING_API_KEY) || configuredMode !== "live";
+const BASE = (process.env.ROQQU_BASE_URL || "https://service.roqqu.com/v1").replace(/\/+$/, "");
+const PUBLIC = (process.env.PUBLIC_URL || `http://localhost:${process.env.PORT || 3000}`).replace(/\/+$/, "");
+
 export const live = Boolean(KEY);
+export const mode = !KEY ? "practice" : staging ? "test" : "live";
 
-const mockPaid = new Set();
-export const mockPay = ref => mockPaid.add(ref);
-
-async function request(method, path, body) {
-  if (!BASE || path.startsWith("TODO")) {
-    throw new Error("Roqqu live mode is not set up yet: set ROQQU_BASE_URL and fill in the endpoints in roqqu.js.");
+async function request(path, fields) {
+  if (!KEY) throw new Error("Roqqu API key is not configured.");
+  const headers = {
+    [staging ? "x-staging-api-key" : "x-api-key"]: KEY
+  };
+  const options = { method: fields ? "POST" : "GET", headers };
+  if (fields) {
+    headers["Content-Type"] = "application/x-www-form-urlencoded";
+    options.body = new URLSearchParams(fields);
   }
-  const r = await fetch(BASE + path, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${KEY}` // >>> FROM DOCS: ASSUMPTION. Change to the auth header Roqqu specifies.
-    },
-    body: body ? JSON.stringify(body) : undefined
-  });
-  const text = await r.text();
-  if (!r.ok) throw new Error(`Roqqu ${r.status}: ${text.slice(0, 200)}`);
-  try { return JSON.parse(text); } catch { return { raw: text }; }
+
+  const response = await fetch(`${BASE}/${path.replace(/^\/+/, "")}`, options);
+  const text = await response.text();
+  let result;
+  try {
+    result = JSON.parse(text);
+  } catch {
+    throw new Error(`Roqqu returned an invalid response (HTTP ${response.status}).`);
+  }
+  if (!response.ok || result.status === "fail") {
+    throw new Error(`Roqqu request failed (HTTP ${response.status}): ${result.message || "request rejected"}`);
+  }
+  return result;
 }
 
-// Ask a member to pay one contribution. Returns { url } to send to them.
-export async function createPaymentLink({ reference, amount, description, payer }) {
+export async function getBalance({ email, token }) {
+  if (!live) throw new Error("Set a Roqqu API key to check balances.");
+  const fields = {};
+  if (email) fields.email = email;
+  if (token) fields.token = token;
+  const result = await request("balances", fields);
+  if (result.status !== "success" || !result.data?.balance) {
+    throw new Error("Roqqu did not return a balance.");
+  }
+  return result.data.balance;
+}
+
+export async function createPaymentLink({ reference, amount, payer, email }) {
   if (!live) return { url: `${PUBLIC}/mock-pay/${reference}` };
-  // >>> FROM DOCS: payment link endpoint, request fields, response shape.
-  const r = await request("POST", "TODO/payment-links", { reference, amount, description, payer });
-  return { url: r.url };
+  if (!/^https:\/\//i.test(PUBLIC)) {
+    throw new Error("Set PUBLIC_URL to the app's public HTTPS address before creating live payment links.");
+  }
+  if (!email) throw new Error(`${payer} needs an email address before creating a Roqqu payment link.`);
+
+  const names = payer.trim().split(/\s+/);
+  const result = await request("payment-links", {
+    amount: String(amount),
+    customer_details: JSON.stringify({
+      email,
+      first_name: names[0] || payer,
+      last_name: names.slice(1).join(" ") || names[0] || payer
+    }),
+    payment_reference: reference,
+    success_url: `${PUBLIC}/?payment=success`,
+    cancel_url: `${PUBLIC}/?payment=cancelled`,
+    amount_currency: "ngn"
+  });
+  const data = result.data;
+  if (result.status !== "success" || typeof data?.payment_link !== "string") {
+    throw new Error("Roqqu did not return a payment link.");
+  }
+  return { url: data.payment_link };
 }
 
-// Has this contribution actually been paid? The app only trusts this answer, never a webhook body.
-export async function isPaid(reference) {
-  if (!live) return mockPaid.has(reference);
-  // >>> FROM DOCS: how to look up a payment or transaction by reference, and which field says it is paid.
-  const r = await request("GET", `TODO/payment-links/${encodeURIComponent(reference)}`);
-  return r.status === "paid";
-}
-
-// Send the pot to the member whose turn it is. `reference` is unique per round, so it cannot be paid twice.
-export async function sendPayout({ reference, amount, to, name }) {
-  if (!live) return { id: "mock-" + reference, mock: true };
-  if (!to) throw new Error(`${name} has no payout address saved.`);
-  // >>> FROM DOCS: send/withdraw endpoint, destination fields, currency, response shape.
-  const r = await request("POST", "TODO/send", { reference, amount, to });
-  return { id: r.id };
-}
-
-// Pull our payment reference out of a webhook. Optional: the server also polls isPaid every 30s.
-export function refFromWebhook(body) {
-  if (!live) return body && body.reference;
-  return null; // >>> FROM DOCS: decrypt/parse the webhook and return the reference.
+export function refFromWebhook(body, iv) {
+  if (!live || typeof body?.hash !== "string" || !/^[0-9a-f]+$/i.test(body.hash) ||
+      typeof iv !== "string" || !/^[0-9a-f]{32}$/i.test(iv)) return null;
+  try {
+    const key = Buffer.from(KEY.slice(0, 32), "utf8");
+    if (key.length !== 32) return null;
+    const decipher = crypto.createDecipheriv("aes-256-ctr", key, Buffer.from(iv, "hex"));
+    const decrypted = Buffer.concat([
+      decipher.update(Buffer.from(body.hash, "hex")),
+      decipher.final()
+    ]).toString("utf8");
+    return JSON.parse(decrypted);
+  } catch {
+    return null;
+  }
 }
